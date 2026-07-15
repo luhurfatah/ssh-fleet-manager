@@ -1,0 +1,199 @@
+{
+  "name": "ssh-fleet-manager",
+  "displayName": "SSH Fleet Manager",
+  "description": "Organize server fleets into projects, browse MAL JSON inventories, and SSH in with saved credentials",
+  "version": "0.1.0",
+  "publisher": "luhurfatah",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "sshFleetManager",
+          "title": "SSH Fleet Manager",
+          "icon": "images/server.svg"
+        }
+      ]
+    },
+    "views": {
+      "sshFleetManager": [
+        {
+          "id": "sshFleetManagerView",
+          "name": "Servers",
+          "type": "webview",
+          "contextualTitle": "SSH Fleet Manager"
+        },
+        {
+          "id": "sshFleetManagerProjects",
+          "name": "Projects",
+          "contextualTitle": "SSH Fleet Manager"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "sshFleetManager.loadFile",
+        "title": "Load JSON File",
+        "icon": "$(folder-opened)",
+        "category": "SSH Fleet Manager"
+      },
+      {
+        "command": "sshFleetManager.refresh",
+        "title": "Refresh",
+        "icon": "$(refresh)",
+        "category": "SSH Fleet Manager"
+      },
+      {
+        "command": "sshFleetManager.createProject",
+        "title": "New Project",
+        "icon": "$(add)",
+        "category": "SSH Fleet Manager"
+      },
+      {
+        "command": "sshFleetManager.switchProject",
+        "title": "Switch Project",
+        "icon": "$(list-flat)",
+        "category": "SSH Fleet Manager"
+      },
+      {
+        "command": "sshFleetManager.switchToProject",
+        "title": "Switch to This Project",
+        "icon": "$(arrow-right)",
+        "category": "SSH Fleet Manager"
+      },
+      {
+        "command": "sshFleetManager.loadFileForProject",
+        "title": "Load JSON for This Project",
+        "icon": "$(folder-opened)",
+        "category": "SSH Fleet Manager"
+      },
+      {
+        "command": "sshFleetManager.editProjectCredentials",
+        "title": "Edit Project Details",
+        "icon": "$(gear)",
+        "category": "SSH Fleet Manager"
+      },
+      {
+        "command": "sshFleetManager.deleteProject",
+        "title": "Delete Project",
+        "icon": "$(trash)",
+        "category": "SSH Fleet Manager"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "sshFleetManager.loadFile",
+          "when": "view == sshFleetManagerView",
+          "group": "navigation@1"
+        },
+        {
+          "command": "sshFleetManager.refresh",
+          "when": "view == sshFleetManagerView",
+          "group": "navigation@2"
+        },
+        {
+          "command": "sshFleetManager.createProject",
+          "when": "view == sshFleetManagerProjects",
+          "group": "navigation@1"
+        },
+        {
+          "command": "sshFleetManager.editProjectCredentials",
+          "when": "view == sshFleetManagerProjects",
+          "group": "navigation@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "sshFleetManager.switchToProject",
+          "when": "view == sshFleetManagerProjects && viewItem == project",
+          "group": "inline@1"
+        },
+        {
+          "command": "sshFleetManager.loadFileForProject",
+          "when": "view == sshFleetManagerProjects && (viewItem == project || viewItem == activeProject)",
+          "group": "1_project@1"
+        },
+        {
+          "command": "sshFleetManager.editProjectCredentials",
+          "when": "view == sshFleetManagerProjects && (viewItem == project || viewItem == activeProject)",
+          "group": "1_project@2"
+        },
+        {
+          "command": "sshFleetManager.deleteProject",
+          "when": "view == sshFleetManagerProjects && (viewItem == project || viewItem == activeProject)",
+          "group": "1_project@3"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "SSH Fleet Manager",
+      "properties": {
+        "sshFleetManager.defaultUser": {
+          "type": "string",
+          "default": "ec2-user",
+          "description": "Default SSH username"
+        },
+        "sshFleetManager.sshKeyPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to SSH private key file (used with -i flag). Leave empty to omit."
+        },
+        "sshFleetManager.groupBy": {
+          "type": "string",
+          "enum": [
+            "status",
+            "company",
+            "sbu",
+            "generalRole",
+            "serverClass",
+            "application",
+            "accountName",
+            "owner",
+            "instanceType",
+            "osVersion"
+          ],
+          "enumDescriptions": [
+            "Group by Status",
+            "Group by Company",
+            "Group by SBU",
+            "Group by General Role (Production / Non-Production)",
+            "Group by Server Class",
+            "Group by Application",
+            "Group by Account Name",
+            "Group by Owner",
+            "Group by Instance Type",
+            "Group by OS / DB Version"
+          ],
+          "default": "company",
+          "description": "Default category to group servers by. Individual projects can override this in their project details."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "node esbuild.js --production",
+    "build": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "compile": "tsc --noEmit",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/codicons": "^0.0.45",
+    "@vscode/vsce": "^2.15.0",
+    "esbuild": "^0.20.0",
+    "typescript": "^5.3.0"
+  },
+  "overrides": {
+    "cheerio": "1.0.0-rc.12"
+  }
+}
