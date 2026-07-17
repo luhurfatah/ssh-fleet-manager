@@ -27,6 +27,7 @@ export function activate(context: vscode.ExtensionContext) {
   let rawServers: Server[] = [];
   let allAssets: Server[] = [];  // all records after exclude rules → Asset Table
   let allServers: Server[] = []; // server-class records only → Servers pane
+  let fileWatcher: vscode.FileSystemWatcher | undefined;
 
   // ── Register views ────────────────────────────────────────────────────────
   context.subscriptions.push(
@@ -64,7 +65,7 @@ export function activate(context: vscode.ExtensionContext) {
     const active = pm.activeProject;
     if (active?.jsonFilePath) {
       try {
-        rawServers = await loadFile(active.jsonFilePath, active.xlsxSheet);
+        rawServers = await loadFile(active.jsonFilePath, active.xlsxSheet, active.fieldMapping);
       } catch {
         rawServers = [];
         vscode.window.showWarningMessage(
@@ -75,6 +76,42 @@ export function activate(context: vscode.ExtensionContext) {
       rawServers = [];
     }
     refreshViews();
+    watchActiveProjectFile();
+  }
+
+  function watchActiveProjectFile(): void {
+    fileWatcher?.dispose();
+    fileWatcher = undefined;
+    const filePath = pm.activeProject?.jsonFilePath;
+    if (!filePath) return;
+
+    const uri = vscode.Uri.file(filePath);
+    const pattern = new vscode.RelativePattern(
+      vscode.Uri.file(require('path').dirname(filePath)),
+      require('path').basename(filePath)
+    );
+    fileWatcher = vscode.workspace.createFileSystemWatcher(pattern);
+    context.subscriptions.push(fileWatcher);
+
+    let debounce: ReturnType<typeof setTimeout> | undefined;
+    const reload = () => {
+      clearTimeout(debounce);
+      debounce = setTimeout(async () => {
+        try {
+          const active = pm.activeProject;
+          if (!active?.jsonFilePath) return;
+          rawServers = await loadFile(active.jsonFilePath, active.xlsxSheet, active.fieldMapping);
+          refreshViews();
+          vscode.window.showInformationMessage(`Auto-reloaded: ${allServers.length} servers`);
+        } catch {
+          // silently ignore transient read errors during save
+        }
+      }, 800);
+    };
+
+    fileWatcher.onDidChange(reload);
+    fileWatcher.onDidCreate(reload);
+    void uri; // suppress unused warning
   }
 
   async function doSwitchToProject(projectId: string): Promise<void> {
@@ -103,7 +140,7 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
       try {
-        rawServers = await loadFile(filePath, active?.xlsxSheet);
+        rawServers = await loadFile(filePath, active?.xlsxSheet, active?.fieldMapping);
         refreshViews();
         vscode.window.showInformationMessage(`Refreshed: ${allServers.length} servers`);
       } catch (err) {
@@ -223,7 +260,7 @@ export function activate(context: vscode.ExtensionContext) {
   // ── Open JSON Visualizer ───────────────────────────────────────────────────
   context.subscriptions.push(
     vscode.commands.registerCommand('sshFleetManager.openVisualizer', () => {
-      openJsonVisualizerPanel(allAssets, pm.activeProject?.defaultFilterField, pm.activeProject?.defaultFilterValue);
+      openJsonVisualizerPanel(allAssets, pm.activeProject?.defaultFilterFields);
     })
   );
 

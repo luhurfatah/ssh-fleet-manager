@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as crypto from 'crypto';
 import { ProjectManager } from './projectManager';
-import { ExcludeRule, GROUPABLE_FIELDS, GroupBy, Server } from './types';
+import { ExcludeRule, FIELD_DEFS, FieldMapping, GROUPABLE_FIELDS, GroupBy, Server } from './types';
 import { loadFile, getXlsxSheets } from './serverLoader';
 
 const openPanels = new Map<string, vscode.WebviewPanel>();
@@ -68,8 +68,8 @@ export async function openProjectDetailsPanel(
     rdpUsername: project.credentials.rdpUsername ?? '',
     rdpDomain: project.credentials.rdpDomain ?? '',
     groupBy: project.groupBy ?? '',
-    defaultFilterField: project.defaultFilterField ?? '',
-    defaultFilterValue: project.defaultFilterValue ?? '',
+    defaultFilterFields: project.defaultFilterFields ?? [],
+    fieldMapping: project.fieldMapping ?? {},
     excludeRules: project.excludeRules ?? [],
     distinctValuesByField,
     hasPassword,
@@ -143,10 +143,17 @@ export async function openProjectDetailsPanel(
         (msg.xlsxSheet ?? '').trim() || undefined
       );
       await pm.setGroupBy(projectId, (msg.groupBy || undefined) as GroupBy | undefined);
-      await pm.setDefaultFilter(
+      await pm.setDefaultFilterFields(
         projectId,
-        (msg.defaultFilterField || undefined) as GroupBy | undefined,
-        (msg.defaultFilterValue || '').trim() || undefined
+        Array.isArray(msg.defaultFilterFields)
+          ? (msg.defaultFilterFields as GroupBy[]).filter(Boolean)
+          : []
+      );
+      await pm.setFieldMapping(
+        projectId,
+        typeof msg.fieldMapping === 'object' && msg.fieldMapping
+          ? (msg.fieldMapping as FieldMapping)
+          : {}
       );
 
       const excludeRules: ExcludeRule[] = Array.isArray(msg.excludeRules)
@@ -193,8 +200,8 @@ interface ProjectFormData {
   rdpUsername: string;
   rdpDomain: string;
   groupBy: string;
-  defaultFilterField: string;
-  defaultFilterValue: string;
+  defaultFilterFields: GroupBy[];
+  fieldMapping: FieldMapping;
   excludeRules: ExcludeRule[];
   distinctValuesByField: Record<string, string[]>;
   hasPassword: boolean;
@@ -208,12 +215,21 @@ function getHtml(nonce: string, data: ProjectFormData): string {
     (f) => `<option value="${f.value}"${f.value === data.groupBy ? ' selected' : ''}>${f.label}</option>`
   ).join('');
 
-  const defaultFilterOptions = GROUPABLE_FIELDS.map(
-    (f) => `<option value="${f.value}"${f.value === data.defaultFilterField ? ' selected' : ''}>${f.label}</option>`
-  ).join('');
-
   const excludeFieldOptions = GROUPABLE_FIELDS.map(
     (f) => `<option value="${f.value}">${f.label}</option>`
+  ).join('');
+
+  const fieldMappingRows = FIELD_DEFS.map(
+    (f) => `
+    <div class="mapping-row">
+      <div>
+        <div class="mapping-label">${f.label}</div>
+        <div class="mapping-default">Default: ${f.defaults.join(', ')}</div>
+      </div>
+      <input type="text" data-mapping-key="${f.key}"
+        value="${esc(data.fieldMapping[f.key] ?? '')}"
+        placeholder="${esc(f.defaults[0])}" />
+    </div>`
   ).join('');
 
   const sheetOptions = data.xlsxSheets
@@ -509,6 +525,37 @@ function getHtml(nonce: string, data: ProjectFormData): string {
   .checkbox-row label { font-size: 12px; cursor: pointer; }
   input[type="checkbox"] { cursor: pointer; width: 14px; height: 14px; flex: 0 0 auto; accent-color: var(--vscode-button-background); }
 
+  /* ── Filter field checkboxes ─────────────────────────── */
+  .filter-checks {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 4px 12px;
+    margin-top: 6px;
+  }
+  .filter-check-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    padding: 3px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .filter-check-item input[type="checkbox"] { flex: 0 0 auto; }
+
+  /* ── Field mapping table ─────────────────────────────── */
+  .mapping-table { display: flex; flex-direction: column; gap: 6px; }
+  .mapping-row {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    align-items: center;
+    gap: 10px;
+  }
+  .mapping-label { font-size: 12px; color: var(--vscode-foreground); }
+  .mapping-default { font-size: 11px; color: var(--vscode-descriptionForeground); margin-top: 1px; }
+
   /* ── Danger zone ─────────────────────────────────────── */
   .card.danger { border-color: color-mix(in srgb, var(--vscode-errorForeground, #f44) 35%, transparent); }
   .card.danger .card-header { background: color-mix(in srgb, var(--vscode-errorForeground, #f44) 6%, transparent); }
@@ -604,16 +651,14 @@ function getHtml(nonce: string, data: ProjectFormData): string {
           </select>
         </div>
         <div class="field">
-          <label class="field-label" for="defaultFilterField">Asset Table Default Filter</label>
-          <div class="field-desc">Pre-applied filter when opening the Asset Table.</div>
-          <select id="defaultFilterField">
-            <option value="">(None)</option>
-            ${defaultFilterOptions}
-          </select>
-          <div id="defaultFilterValueRow" style="display:${data.defaultFilterField ? 'flex' : 'none'};margin-top:6px;gap:6px;align-items:center;">
-            <input type="text" id="defaultFilterValue" list="defaultFilterValueOptions"
-              value="${esc(data.defaultFilterValue)}" placeholder="Filter value (blank = show all)" style="flex:1;" />
-            <datalist id="defaultFilterValueOptions"></datalist>
+          <label class="field-label">Asset Table Visible Filters</label>
+          <div class="field-desc">Filter columns shown by default when opening the Asset Table.</div>
+          <div class="filter-checks">
+            ${GROUPABLE_FIELDS.map((f) => `
+            <label class="filter-check-item">
+              <input type="checkbox" name="defaultFilterFields" value="${f.value}"${data.defaultFilterFields.includes(f.value) ? ' checked' : ''} />
+              ${f.label}
+            </label>`).join('')}
           </div>
         </div>
       </div>
@@ -704,7 +749,21 @@ function getHtml(nonce: string, data: ProjectFormData): string {
     </div>
   </div>
 
-  <!-- Row 5: Danger Zone -->
+  <!-- Row 5: Field Mapping -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-header-icon">&#128204;</span>
+      <span class="card-header-text">Field Mapping</span>
+    </div>
+    <div class="card-body">
+      <div class="field-desc">Override which Excel column maps to each field. Leave blank to use the default column name shown below the input.</div>
+      <div class="mapping-table">
+        ${fieldMappingRows}
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 6: Danger Zone -->
   <div class="card danger">
     <div class="card-header">
       <span class="card-header-icon">&#9888;</span>
@@ -729,11 +788,7 @@ function getHtml(nonce: string, data: ProjectFormData): string {
   const jsonFilePathEl      = document.getElementById('jsonFilePath');
   const xlsxSheetEl         = document.getElementById('xlsxSheet');
   const sheetRowEl          = document.getElementById('sheetRow');
-  const groupByEl              = document.getElementById('groupBy');
-  const defaultFilterFieldEl   = document.getElementById('defaultFilterField');
-  const defaultFilterValueEl   = document.getElementById('defaultFilterValue');
-  const defaultFilterValueRow  = document.getElementById('defaultFilterValueRow');
-  const defaultFilterValueOpts = document.getElementById('defaultFilterValueOptions');
+  const groupByEl = document.getElementById('groupBy');
   const usernameEl          = document.getElementById('username');
   const sshKeyPathEl        = document.getElementById('sshKeyPath');
   const rdpUsernameEl       = document.getElementById('rdpUsername');
@@ -764,25 +819,6 @@ function getHtml(nonce: string, data: ProjectFormData): string {
       document.getElementById('tab-' + btn.dataset.tab)?.classList.add('active');
     });
   });
-
-  // ── Default filter value datalist ──────────────────────────────────────────
-  function updateDefaultFilterValueOptions() {
-    const field = defaultFilterFieldEl.value;
-    defaultFilterValueRow.style.display = field ? 'flex' : 'none';
-    if (!field) { defaultFilterValueEl.value = ''; return; }
-    const values = distinctValuesByField[field] || [];
-    defaultFilterValueOpts.innerHTML = '';
-    for (const v of values) {
-      const opt = document.createElement('option');
-      opt.value = v;
-      defaultFilterValueOpts.appendChild(opt);
-    }
-  }
-  defaultFilterFieldEl.addEventListener('change', () => {
-    defaultFilterValueEl.value = '';
-    updateDefaultFilterValueOptions();
-  });
-  updateDefaultFilterValueOptions();
 
   // ── Exclude rules ──────────────────────────────────────────────────────────
   function renderExcludeRules() {
@@ -856,8 +892,12 @@ function getHtml(nonce: string, data: ProjectFormData): string {
       jsonFilePath:       jsonFilePathEl.value,
       xlsxSheet:          xlsxSheetEl.value,
       groupBy:            groupByEl.value,
-      defaultFilterField: defaultFilterFieldEl.value,
-      defaultFilterValue: defaultFilterValueEl.value,
+      defaultFilterFields: [...document.querySelectorAll('input[name="defaultFilterFields"]:checked')].map(el => el.value),
+      fieldMapping: Object.fromEntries(
+        [...document.querySelectorAll('input[data-mapping-key]')]
+          .map(el => [el.dataset.mappingKey, el.value.trim()])
+          .filter(([, v]) => v)
+      ),
       excludeRules,
       username:           usernameEl.value,
       sshKeyPath:         sshKeyPathEl.value,
@@ -896,7 +936,6 @@ function getHtml(nonce: string, data: ProjectFormData): string {
     if (msg.type === 'setDistinctValues') {
       distinctValuesByField = msg.value;
       updateExcludeValueOptions();
-      updateDefaultFilterValueOptions();
     }
     if (msg.type === 'error') {
       nameError.textContent   = msg.message;

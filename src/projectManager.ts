@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as crypto from 'crypto';
-import { ExcludeRule, GroupBy } from './types';
+import { ExcludeRule, FieldMapping, GroupBy } from './types';
 
 export interface ProjectCredentials {
   username?: string;
@@ -16,8 +16,8 @@ export interface Project {
   xlsxSheet?: string;
   credentials: ProjectCredentials;
   groupBy?: GroupBy;
-  defaultFilterField?: GroupBy;
-  defaultFilterValue?: string;
+  defaultFilterFields?: GroupBy[];
+  fieldMapping?: FieldMapping;
   excludeRules?: ExcludeRule[];
 }
 
@@ -98,11 +98,17 @@ export class ProjectManager {
     await this.persist();
   }
 
-  async setDefaultFilter(projectId: string, field: GroupBy | undefined, value: string | undefined): Promise<void> {
+  async setDefaultFilterFields(projectId: string, fields: GroupBy[]): Promise<void> {
     const project = this.state.projects.find((p) => p.id === projectId);
     if (!project) return;
-    project.defaultFilterField = field;
-    project.defaultFilterValue = value || undefined;
+    project.defaultFilterFields = fields.length > 0 ? fields : undefined;
+    await this.persist();
+  }
+
+  async setFieldMapping(projectId: string, mapping: FieldMapping): Promise<void> {
+    const project = this.state.projects.find((p) => p.id === projectId);
+    if (!project) return;
+    project.fieldMapping = Object.keys(mapping).length > 0 ? mapping : undefined;
     await this.persist();
   }
 

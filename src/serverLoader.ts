@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs/promises';
-import { Server, mapRecord } from './types';
+import { FieldMapping, Server, mapRecord } from './types';
 import * as XLSX from 'xlsx';
 
 export async function pickAndLoadFile(): Promise<{ filePath: string; servers: Server[] } | undefined> {
@@ -23,21 +23,21 @@ export async function pickAndLoadFile(): Promise<{ filePath: string; servers: Se
   return { filePath, servers };
 }
 
-export async function loadFile(filePath: string, xlsxSheet?: string): Promise<Server[]> {
+export async function loadFile(filePath: string, xlsxSheet?: string, fieldMapping?: FieldMapping): Promise<Server[]> {
   if (filePath.toLowerCase().endsWith('.xlsx')) {
-    return loadXlsxFile(filePath, xlsxSheet);
+    return loadXlsxFile(filePath, xlsxSheet, fieldMapping);
   }
-  return loadJsonFile(filePath);
+  return loadJsonFile(filePath, fieldMapping);
 }
 
-async function loadJsonFile(filePath: string): Promise<Server[]> {
+async function loadJsonFile(filePath: string, fieldMapping?: FieldMapping): Promise<Server[]> {
   const raw = await fs.readFile(filePath, 'utf-8');
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const records: Record<string, any>[] = JSON.parse(raw);
   if (!Array.isArray(records)) {
     throw new Error('JSON file must contain an array of server records');
   }
-  return records.map(mapRecord).filter((s) => s.hostname && s.privateIp);
+  return records.map((r) => mapRecord(r, fieldMapping)).filter((s) => s.hostname && s.privateIp);
 }
 
 export async function getXlsxSheets(filePath: string): Promise<string[]> {
@@ -46,7 +46,7 @@ export async function getXlsxSheets(filePath: string): Promise<string[]> {
   return wb.SheetNames;
 }
 
-async function loadXlsxFile(filePath: string, sheetName?: string): Promise<Server[]> {
+async function loadXlsxFile(filePath: string, sheetName?: string, fieldMapping?: FieldMapping): Promise<Server[]> {
   const buf = await fs.readFile(filePath);
   const wb = XLSX.read(buf, { type: 'buffer' });
 
@@ -69,5 +69,5 @@ async function loadXlsxFile(filePath: string, sheetName?: string): Promise<Serve
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const records: Record<string, any>[] = XLSX.utils.sheet_to_json(wsData, { defval: '' });
 
-  return records.map(mapRecord).filter((s) => s.hostname && s.privateIp);
+  return records.map((r) => mapRecord(r, fieldMapping)).filter((s) => s.hostname && s.privateIp);
 }

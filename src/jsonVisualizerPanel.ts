@@ -4,7 +4,7 @@ import { Server } from './types';
 
 let panel: vscode.WebviewPanel | undefined;
 
-export function openJsonVisualizerPanel(servers: Server[], defaultFilterField?: string, defaultFilterValue?: string): void {
+export function openJsonVisualizerPanel(servers: Server[], defaultFilterFields?: string[]): void {
   if (panel) {
     panel.reveal();
     panel.webview.postMessage({ type: 'setServers', servers });
@@ -24,7 +24,7 @@ export function openJsonVisualizerPanel(servers: Server[], defaultFilterField?: 
   });
 
   const nonce = crypto.randomBytes(16).toString('hex');
-  panel.webview.html = getHtml(nonce, defaultFilterField, defaultFilterValue);
+  panel.webview.html = getHtml(nonce, defaultFilterFields);
 
   panel.webview.onDidReceiveMessage(async (msg) => {
     if (msg.type === 'copy') {
@@ -45,7 +45,7 @@ export function updateJsonVisualizerPanel(servers: Server[]): void {
   }
 }
 
-function getHtml(nonce: string, defaultFilterField?: string, defaultFilterValue?: string): string {
+function getHtml(nonce: string, defaultFilterFields?: string[]): string {
   const linuxSvg   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="18" rx="2"/><path d="M8 9l4 4-4 4"/><path d="M14 17h4"/></svg>`;
   const windowsSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.5L10.5 4.5V11.5H3V5.5Z"/><path d="M11.5 4.35L21 3V11.5H11.5V4.35Z"/><path d="M3 12.5H10.5V19.5L3 18.5V12.5Z"/><path d="M11.5 12.5H21V21L11.5 19.65V12.5Z"/></svg>`;
   const gearSvg    = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
@@ -70,6 +70,7 @@ function getHtml(nonce: string, defaultFilterField?: string, defaultFilterValue?
     flex-direction: column;
     height: 100vh;
     overflow: hidden;
+    position: relative;
   }
 
   .hero {
@@ -268,20 +269,48 @@ function getHtml(nonce: string, defaultFilterField?: string, defaultFilterValue?
   /* ── Export section ─────────────────────────────────── */
   .export-section {
     flex: 0 0 auto;
-    border-top: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.25));
     background: var(--vscode-editor-background);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border-top: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.2));
   }
+  /* Drag-to-resize handle */
+  .resize-handle {
+    flex: 0 0 5px;
+    cursor: ns-resize;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--vscode-editorGroup-border, rgba(128,128,128,0.05));
+    border-top: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.2));
+    transition: background 0.1s;
+  }
+  .resize-handle:hover { background: var(--vscode-list-hoverBackground); }
+  .resize-handle::after {
+    content: '';
+    width: 22px;
+    height: 2px;
+    background: var(--vscode-panel-border, rgba(128,128,128,0.4));
+    transition: background 0.1s;
+  }
+  .resize-handle:hover::after { background: var(--vscode-focusBorder, #007acc); }
+
+  /* Header bar */
   .export-header {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 8px 14px;
+    gap: 8px;
+    padding: 0 6px 0 10px;
+    height: 28px;
     cursor: pointer;
     user-select: none;
+    background: var(--vscode-editorGroupHeader-tabsBackground, rgba(128,128,128,0.04));
+    flex: 0 0 auto;
     transition: background 0.1s;
   }
   .export-header:hover { background: var(--vscode-list-hoverBackground); }
-  .export-chevron { flex: 0 0 auto; transition: transform 0.15s ease; opacity: 0.6; }
+  .export-chevron { flex: 0 0 auto; transition: transform 0.15s ease; opacity: 0.5; }
   .export-section.open .export-chevron { transform: rotate(180deg); }
   .export-title {
     font-size: 11px;
@@ -292,108 +321,121 @@ function getHtml(nonce: string, defaultFilterField?: string, defaultFilterValue?
     flex: 0 0 auto;
   }
   .export-tagline { font-size: 11px; color: var(--vscode-descriptionForeground); flex: 1; }
+
+  /* Collapsible body */
   .export-body {
     display: none;
-    padding: 12px 14px 16px;
-    border-top: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.15));
+    flex: 1;
+    overflow: hidden;
+    flex-direction: column;
+    min-height: 0;
   }
-  .export-section.open .export-body { display: block; }
+  .export-section.open .export-body { display: flex; }
 
-  /* Format cards */
-  .format-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
-  .format-card {
+  /* Toolbar row: format tabs flush-left, generate button right-aligned */
+  .export-toolbar {
     display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 10px 12px;
-    border: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.3));
-    border-radius: 6px;
-    cursor: pointer;
-    user-select: none;
-    transition: background 0.1s, border-color 0.15s;
-    background: transparent;
-  }
-  .format-card:hover { background: var(--vscode-list-hoverBackground); }
-  .format-card.selected {
-    border-color: var(--vscode-focusBorder, #007acc);
-    background: rgba(0,120,212,0.07);
-  }
-  .format-icon {
+    align-items: stretch;
+    border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.2));
     flex: 0 0 auto;
-    width: 30px;
-    height: 30px;
-    border-radius: 6px;
-    background: rgba(128,128,128,0.1);
+  }
+  .format-tabs { display: flex; flex: 1; }
+  .format-tab {
     display: flex;
     align-items: center;
-    justify-content: center;
-    color: var(--vscode-descriptionForeground);
-    transition: background 0.15s, color 0.15s;
-  }
-  .format-card.selected .format-icon {
-    background: var(--vscode-button-background, #007acc);
-    color: var(--vscode-button-foreground, #fff);
-  }
-  .format-name { font-size: 12px; font-weight: 600; color: var(--vscode-foreground); margin-bottom: 3px; }
-  .format-sub  { font-size: 11px; color: var(--vscode-descriptionForeground); line-height: 1.35; }
-
-  /* Generate button */
-  .btn-generate {
+    gap: 5px;
+    padding: 0 14px;
+    height: 33px;
     font-family: var(--vscode-font-family);
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 400;
+    background: transparent;
+    color: var(--vscode-descriptionForeground);
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.1s, border-color 0.1s, background 0.1s;
+    white-space: nowrap;
+  }
+  .format-tab:hover { color: var(--vscode-foreground); background: var(--vscode-list-hoverBackground); }
+  .format-tab.selected {
+    color: var(--vscode-foreground);
+    border-bottom-color: var(--vscode-focusBorder, #007acc);
+    font-weight: 500;
+  }
+  .format-tab svg { opacity: 0.6; }
+  .format-tab.selected svg { opacity: 1; }
+  .btn-generate {
+    align-self: center;
+    font-family: var(--vscode-font-family);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
     background: var(--vscode-button-background);
     color: var(--vscode-button-foreground);
     border: none;
-    border-radius: 4px;
-    padding: 7px 20px;
+    padding: 0 13px;
+    height: 22px;
+    margin: 0 10px;
     cursor: pointer;
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
-    gap: 7px;
-    width: 100%;
-    margin-bottom: 14px;
-    transition: background 0.12s;
+    gap: 5px;
+    white-space: nowrap;
+    transition: background 0.1s;
   }
   .btn-generate:hover { background: var(--vscode-button-hoverBackground); }
 
   /* Output block */
-  .output-area { display: none; }
-  .output-area.visible { display: block; }
+  .output-area {
+    display: none;
+    flex: 1;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 8px 10px 10px;
+    min-height: 0;
+  }
+  .output-area.visible { display: flex; }
   .output-header {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 6px 10px;
+    padding: 4px 10px;
     background: var(--vscode-editorGroupHeader-tabsBackground, rgba(128,128,128,0.06));
-    border: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.25));
+    border: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.2));
+    border-left: 2px solid var(--vscode-focusBorder, #007acc);
     border-bottom: none;
-    border-radius: 6px 6px 0 0;
+    flex: 0 0 auto;
   }
   .output-format-name { font-size: 11px; font-weight: 600; flex: 1; color: var(--vscode-foreground); }
   .output-count {
     font-size: 10px;
     font-weight: 600;
-    background: var(--vscode-badge-background, rgba(0,120,212,0.2));
-    color: var(--vscode-badge-foreground, var(--vscode-foreground));
-    border-radius: 10px;
-    padding: 1px 8px;
+    background: rgba(0,120,212,0.1);
+    color: var(--vscode-focusBorder, #007acc);
+    padding: 1px 7px;
+    letter-spacing: 0.3px;
   }
   .export-textarea {
     display: block;
     width: 100%;
-    height: 220px;
-    background: var(--vscode-textCodeBlock-background, rgba(0,0,0,0.18));
+    box-sizing: border-box;
+    min-height: 100px;
+    height: 200px;
+    background: var(--vscode-textCodeBlock-background, rgba(0,0,0,0.15));
     color: var(--vscode-foreground);
-    border: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.25));
-    border-radius: 0 0 6px 6px;
+    border: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.2));
+    border-left: 2px solid var(--vscode-focusBorder, #007acc);
     padding: 10px 12px;
     font-family: var(--vscode-editor-font-family, 'Courier New', monospace);
     font-size: 12px;
     outline: none;
     resize: vertical;
     line-height: 1.65;
+    flex: 0 0 auto;
   }
 </style>
 </head>
@@ -407,10 +449,10 @@ function getHtml(nonce: string, defaultFilterField?: string, defaultFilterValue?
 <div class="toolbar">
   <input type="text" id="searchInput" placeholder="Search all fields…" />
 
-  <span id="osWrap"><select id="osFilter"><option value="">OS (All)</option><option value="linux">Linux</option><option value="windows">Windows</option></select></span>
-  <span id="statusWrap"><select id="statusFilter"><option value="">Status (All)</option></select></span>
-  <span id="companyWrap"><select id="companyFilter"><option value="">Company (All)</option></select></span>
-  <span id="appWrap"><select id="appFilter"><option value="">Application (All)</option></select></span>
+  <span id="osWrap" style="display:none"><select id="osFilter"><option value="">OS (All)</option><option value="linux">Linux</option><option value="windows">Windows</option></select></span>
+  <span id="statusWrap" style="display:none"><select id="statusFilter"><option value="">Status (All)</option></select></span>
+  <span id="companyWrap" style="display:none"><select id="companyFilter"><option value="">Company (All)</option></select></span>
+  <span id="appWrap" style="display:none"><select id="appFilter"><option value="">Application (All)</option></select></span>
   <span id="sbuWrap" style="display:none"><select id="sbuFilter"><option value="">SBU (All)</option></select></span>
   <span id="roleWrap" style="display:none"><select id="roleFilter"><option value="">Role (All)</option></select></span>
   <span id="scWrap" style="display:none"><select id="scFilter"><option value="">Server Class (All)</option></select></span>
@@ -428,10 +470,10 @@ function getHtml(nonce: string, defaultFilterField?: string, defaultFilterValue?
 <!-- Settings dropdown -->
 <div class="settings-panel" id="settingsPanel">
   <div class="settings-section-title">Default Filters</div>
-  <label class="settings-item"><input type="checkbox" id="visOs" checked> OS</label>
-  <label class="settings-item"><input type="checkbox" id="visStatus" checked> Status</label>
-  <label class="settings-item"><input type="checkbox" id="visCompany" checked> Company</label>
-  <label class="settings-item"><input type="checkbox" id="visApp" checked> Application</label>
+  <label class="settings-item"><input type="checkbox" id="visOs"> OS</label>
+  <label class="settings-item"><input type="checkbox" id="visStatus"> Status</label>
+  <label class="settings-item"><input type="checkbox" id="visCompany"> Company</label>
+  <label class="settings-item"><input type="checkbox" id="visApp"> Application</label>
   <div class="settings-divider"></div>
   <div class="settings-section-title">Additional Filters</div>
   <label class="settings-item"><input type="checkbox" id="visSbu"> SBU</label>
@@ -441,7 +483,7 @@ function getHtml(nonce: string, defaultFilterField?: string, defaultFilterValue?
   <label class="settings-item"><input type="checkbox" id="visOwner"> Owner</label>
   <div class="settings-divider"></div>
   <div class="settings-section-title">Bulk Filter</div>
-  <label class="settings-item"><input type="checkbox" id="visHostname" checked> Hostname (bulk)</label>
+  <label class="settings-item"><input type="checkbox" id="visHostname"> Hostname (bulk)</label>
 </div>
 
 <!-- Hostname bulk filter -->
@@ -474,37 +516,29 @@ function getHtml(nonce: string, defaultFilterField?: string, defaultFilterValue?
 
 <!-- Export section -->
 <div class="export-section" id="exportSection">
+  <div class="resize-handle" id="exportResizeHandle"></div>
   <div class="export-header" id="exportToggle">
     <svg class="export-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
     <span class="export-title">Export</span>
     <span class="export-tagline">Transform filtered servers into config files</span>
   </div>
   <div class="export-body">
-    <div class="format-grid">
-      <div class="format-card selected" data-tab="ami">
-        <div class="format-icon">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="5" rx="2"/><rect x="2" y="10" width="20" height="5" rx="2"/><rect x="2" y="17" width="20" height="5" rx="2"/><circle cx="6" cy="5.5" r="1" fill="currentColor" stroke="none"/><circle cx="6" cy="12.5" r="1" fill="currentColor" stroke="none"/><circle cx="6" cy="19.5" r="1" fill="currentColor" stroke="none"/></svg>
-        </div>
-        <div>
-          <div class="format-name">AWS AMI Backup</div>
-          <div class="format-sub">Instance backup config<br>grouped by account ID</div>
-        </div>
+    <div class="export-toolbar">
+      <div class="format-tabs">
+        <button class="format-tab selected" data-tab="ami">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="5" rx="2"/><rect x="2" y="10" width="20" height="5" rx="2"/><rect x="2" y="17" width="20" height="5" rx="2"/></svg>
+          AWS AMI Backup
+        </button>
+        <button class="format-tab" data-tab="ansible">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          Ansible Vars
+        </button>
       </div>
-      <div class="format-card" data-tab="ansible">
-        <div class="format-icon">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-        </div>
-        <div>
-          <div class="format-name">Ansible Vars</div>
-          <div class="format-sub">Host inventory with<br>private IP addresses</div>
-        </div>
-      </div>
+      <button class="btn-generate" id="btnGenerate">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Generate
+      </button>
     </div>
-
-    <button class="btn-generate" id="btnGenerate">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-      Generate
-    </button>
 
     <div class="output-area" id="outputArea">
       <div class="output-header">
@@ -519,8 +553,7 @@ function getHtml(nonce: string, defaultFilterField?: string, defaultFilterValue?
 
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi();
-  const DEFAULT_FILTER_FIELD = ${JSON.stringify(defaultFilterField ?? null)};
-  const DEFAULT_FILTER_VALUE = ${JSON.stringify(defaultFilterValue ?? null)};
+  const DEFAULT_FILTER_FIELDS = ${JSON.stringify(defaultFilterFields ?? [])};
   let initialFilterApplied = false;
 
   const COLUMNS = [
@@ -786,7 +819,7 @@ function getHtml(nonce: string, defaultFilterField?: string, defaultFilterValue?
   });
 
   // ── Messages ───────────────────────────────────────────────────────────────
-  // GroupBy field → VIS_MAP fkey mapping for defaultFilterField
+  // GroupBy field key → VIS_MAP fkey
   const FIELD_TO_FKEY = {
     status: 'status', company: 'company', sbu: 'sbu', generalRole: 'role',
     serverClass: 'serverClass', application: 'application', accountName: 'account', owner: 'owner'
@@ -797,27 +830,19 @@ function getHtml(nonce: string, defaultFilterField?: string, defaultFilterValue?
       allServers = e.data.servers || [];
       heroSub.textContent = allServers.length === 0 ? 'No servers loaded' : allServers.length.toLocaleString() + ' servers';
       rebuildFilterOptions();
-      if (!initialFilterApplied && DEFAULT_FILTER_FIELD) {
+      if (!initialFilterApplied && DEFAULT_FILTER_FIELDS.length > 0) {
         initialFilterApplied = true;
-        const fkey = FIELD_TO_FKEY[DEFAULT_FILTER_FIELD];
-        if (fkey) {
+        DEFAULT_FILTER_FIELDS.forEach(field => {
+          const fkey = FIELD_TO_FKEY[field];
+          if (!fkey) return;
           const entry = VIS_MAP.find(v => v.fkey === fkey);
-          if (entry) {
-            // Make the filter column visible
-            const checkbox = document.getElementById(entry.id);
-            if (checkbox && !checkbox.checked) { checkbox.checked = true; }
-            document.getElementById(entry.wrap).style.display = '';
-            // Apply the filter value if one is configured
-            if (DEFAULT_FILTER_VALUE) {
-              filters[fkey] = DEFAULT_FILTER_VALUE;
-              entry.sel.value = DEFAULT_FILTER_VALUE;
-            }
-          }
-        }
-        render();
-      } else {
-        render();
+          if (!entry) return;
+          const checkbox = document.getElementById(entry.id);
+          if (checkbox && !checkbox.checked) { checkbox.checked = true; }
+          document.getElementById(entry.wrap).style.display = '';
+        });
       }
+      render();
     }
   });
 
@@ -836,8 +861,43 @@ function getHtml(nonce: string, defaultFilterField?: string, defaultFilterValue?
   const outputCount      = document.getElementById('outputCount');
   const btnGenerate      = document.getElementById('btnGenerate');
 
+  // Stored resize height; applied when section is open
+  let resizeHeight = 0;
+
+  // Collapse toggle
   document.getElementById('exportToggle').addEventListener('click', () => {
+    const willOpen = !exportSection.classList.contains('open');
     exportSection.classList.toggle('open');
+    exportSection.style.flex = (willOpen && resizeHeight) ? '0 0 ' + resizeHeight + 'px' : '';
+  });
+
+  // Resize drag handle
+  const resizeHandle = document.getElementById('exportResizeHandle');
+  let isResizing   = false;
+  let resizeStartY = 0;
+  let resizeStartH = 0;
+
+  resizeHandle.addEventListener('mousedown', (e) => {
+    isResizing   = true;
+    resizeStartY = e.clientY;
+    resizeStartH = exportSection.offsetHeight;
+    document.body.style.cursor     = 'ns-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isResizing) return;
+    const dy = resizeStartY - e.clientY;
+    resizeHeight = Math.min(Math.max(resizeStartH + dy, 80), window.innerHeight * 0.85);
+    exportSection.style.flex = '0 0 ' + resizeHeight + 'px';
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!isResizing) return;
+    isResizing = false;
+    document.body.style.cursor     = '';
+    document.body.style.userSelect = '';
   });
 
   function showOutput(tab) {
@@ -859,12 +919,12 @@ function getHtml(nonce: string, defaultFilterField?: string, defaultFilterValue?
     outputArea.classList.add('visible');
   }
 
-  document.querySelectorAll('.format-card').forEach(card => {
-    card.addEventListener('click', () => {
-      document.querySelectorAll('.format-card').forEach(c => c.classList.remove('selected'));
-      card.classList.add('selected');
-      activeExportTab = card.dataset.tab;
-      showOutput(activeExportTab); // show cached output immediately — no re-generate needed
+  document.querySelectorAll('.format-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.format-tab').forEach(t => t.classList.remove('selected'));
+      tab.classList.add('selected');
+      activeExportTab = tab.dataset.tab;
+      showOutput(activeExportTab);
     });
   });
 
