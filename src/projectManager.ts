@@ -5,14 +5,19 @@ import { ExcludeRule, GroupBy } from './types';
 export interface ProjectCredentials {
   username?: string;
   sshKeyPath?: string;
+  rdpUsername?: string;
+  rdpDomain?: string;
 }
 
 export interface Project {
   id: string;
   name: string;
   jsonFilePath?: string;
+  xlsxSheet?: string;
   credentials: ProjectCredentials;
   groupBy?: GroupBy;
+  defaultFilterField?: GroupBy;
+  defaultFilterValue?: string;
   excludeRules?: ExcludeRule[];
 }
 
@@ -71,10 +76,11 @@ export class ProjectManager {
     await this.persist();
   }
 
-  async updateJsonFilePath(projectId: string, filePath: string): Promise<void> {
+  async updateJsonFilePath(projectId: string, filePath: string, xlsxSheet?: string): Promise<void> {
     const project = this.state.projects.find((p) => p.id === projectId);
     if (!project) return;
     project.jsonFilePath = filePath || undefined;
+    project.xlsxSheet = xlsxSheet || undefined;
     await this.persist();
   }
 
@@ -89,6 +95,14 @@ export class ProjectManager {
     const project = this.state.projects.find((p) => p.id === projectId);
     if (!project) return;
     project.groupBy = groupBy;
+    await this.persist();
+  }
+
+  async setDefaultFilter(projectId: string, field: GroupBy | undefined, value: string | undefined): Promise<void> {
+    const project = this.state.projects.find((p) => p.id === projectId);
+    if (!project) return;
+    project.defaultFilterField = field;
+    project.defaultFilterValue = value || undefined;
     await this.persist();
   }
 

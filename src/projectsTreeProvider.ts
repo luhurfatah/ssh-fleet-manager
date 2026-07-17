@@ -14,13 +14,11 @@ export class ProjectNode extends vscode.TreeItem {
       ? new vscode.ThemeIcon('check', new vscode.ThemeColor('charts.green'))
       : new vscode.ThemeIcon('circle-outline');
 
-    if (!isActive) {
-      this.command = {
-        command: 'sshFleetManager.switchToProject',
-        title: 'Switch to Project',
-        arguments: [project.id],
-      };
-    }
+    this.command = {
+      command: 'sshFleetManager.editProjectCredentials',
+      title: 'Open Project Settings',
+      arguments: [this],
+    };
   }
 }
 

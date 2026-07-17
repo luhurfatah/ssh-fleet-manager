@@ -15,6 +15,7 @@ export interface Server {
   serverPic: string;
   instanceType: string;
   osVersion: string;
+  os: 'linux' | 'windows';
 }
 
 export type GroupBy =
@@ -49,6 +50,11 @@ export interface ExcludeRule {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function mapRecord(raw: Record<string, any>): Server {
+  const cls = (raw['Class'] ?? '').toLowerCase();
+  const osVer = (raw['OS/DB Version'] ?? '').toLowerCase();
+  const os: 'linux' | 'windows' =
+    cls.includes('windows') || osVer.includes('windows') ? 'windows' : 'linux';
+
   return {
     hostname: raw['Host name'] ?? raw['Hostname'] ?? '',
     privateIp: raw['Private IP'] ?? '',
@@ -66,5 +72,6 @@ export function mapRecord(raw: Record<string, any>): Server {
     serverPic: raw['Server PIC'] ?? '',
     instanceType: raw['Instance Type'] ?? '',
     osVersion: raw['OS/DB Version'] ?? '',
+    os,
   };
 }

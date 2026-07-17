@@ -5,7 +5,10 @@ import { Server, GroupBy } from './types';
 export type ServersViewMessage =
   | { type: 'ready' }
   | { type: 'openSsh'; server: Server }
-  | { type: 'copyCommand'; server: Server };
+  | { type: 'copyCommand'; server: Server }
+  | { type: 'openRdp'; server: Server }
+  | { type: 'copyRdpCommand'; server: Server }
+  | { type: 'openDetail'; server: Server };
 
 export class ServersViewProvider implements vscode.WebviewViewProvider {
   static readonly viewId = 'sshFleetManagerView';
@@ -171,10 +174,12 @@ export class ServersViewProvider implements vscode.WebviewViewProvider {
   }
   .server-row:hover { background: var(--vscode-list-hoverBackground); }
   .server-icon {
-    font-size: 14px;
     width: 16px;
-    text-align: center;
+    height: 16px;
     flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     color: var(--vscode-icon-foreground, var(--vscode-foreground));
     opacity: 0.85;
   }
@@ -267,29 +272,25 @@ export class ServersViewProvider implements vscode.WebviewViewProvider {
     return 'not running';
   }
 
-  function buildTooltip(s) {
-    const lines = [s.hostname];
-    lines.push('IP: ' + s.privateIp);
-    if (s.fqdn && s.fqdn !== '-') lines.push('FQDN: ' + s.fqdn);
-    if (s.instanceId) lines.push('Instance: ' + s.instanceId);
-    if (s.instanceType) lines.push('Type: ' + s.instanceType);
-    if (s.osVersion) lines.push('OS: ' + s.osVersion);
-    if (s.status) lines.push('Status: ' + s.status + ' (' + statusMeaning(s.status) + ')');
-    if (s.generalRole) lines.push('Role: ' + s.generalRole);
-    if (s.application) lines.push('App: ' + s.application);
-    if (s.accountName) lines.push('Account: ' + s.accountName);
-    if (s.owner) lines.push('Owner: ' + s.owner);
-    if (s.serverPic) lines.push('PIC: ' + s.serverPic);
-    return lines.join('\\n');
-  }
-
   function renderRow(s) {
+    const isWindows = s.os === 'windows';
     const row = document.createElement('div');
     row.className = 'server-row';
-    row.title = buildTooltip(s);
 
     const icon = document.createElement('span');
-    icon.className = 'codicon codicon-vm server-icon';
+    icon.className = 'server-icon';
+    icon.innerHTML = isWindows
+      ? \`<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" aria-label="Windows">
+           <rect x="1" y="1" width="10" height="10" fill="currentColor" rx="1"/>
+           <rect x="13" y="1" width="10" height="10" fill="currentColor" rx="1"/>
+           <rect x="1" y="13" width="10" height="10" fill="currentColor" rx="1"/>
+           <rect x="13" y="13" width="10" height="10" fill="currentColor" rx="1"/>
+         </svg>\`
+      : \`<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Linux">
+           <rect x="2" y="3" width="20" height="18" rx="2"/>
+           <path d="M8 9l4 4-4 4"/>
+           <path d="M14 17h4"/>
+         </svg>\`;
     row.appendChild(icon);
 
     const host = document.createElement('span');
@@ -305,29 +306,53 @@ export class ServersViewProvider implements vscode.WebviewViewProvider {
     const actions = document.createElement('span');
     actions.className = 'actions';
 
-    const sshBtn = document.createElement('button');
-    sshBtn.className = 'act';
-    sshBtn.title = 'Open SSH Terminal';
-    sshBtn.innerHTML = '<span class="codicon codicon-terminal"></span>';
-    sshBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      vscode.postMessage({ type: 'openSsh', server: s });
-    });
+    if (isWindows) {
+      const rdpBtn = document.createElement('button');
+      rdpBtn.className = 'act';
+      rdpBtn.title = 'Open RDP';
+      rdpBtn.innerHTML = '<span class="codicon codicon-remote"></span>';
+      rdpBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        vscode.postMessage({ type: 'openRdp', server: s });
+      });
 
-    const copyBtn = document.createElement('button');
-    copyBtn.className = 'act';
-    copyBtn.title = 'Copy SSH Command';
-    copyBtn.innerHTML = '<span class="codicon codicon-clippy"></span>';
-    copyBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      vscode.postMessage({ type: 'copyCommand', server: s });
-    });
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'act';
+      copyBtn.title = 'Copy RDP Command';
+      copyBtn.innerHTML = '<span class="codicon codicon-clippy"></span>';
+      copyBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        vscode.postMessage({ type: 'copyRdpCommand', server: s });
+      });
 
-    actions.appendChild(sshBtn);
-    actions.appendChild(copyBtn);
+      actions.appendChild(rdpBtn);
+      actions.appendChild(copyBtn);
+      row.addEventListener('click', () => vscode.postMessage({ type: 'openDetail', server: s }));
+    } else {
+      const sshBtn = document.createElement('button');
+      sshBtn.className = 'act';
+      sshBtn.title = 'Open SSH Terminal';
+      sshBtn.innerHTML = '<span class="codicon codicon-terminal"></span>';
+      sshBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        vscode.postMessage({ type: 'openSsh', server: s });
+      });
+
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'act';
+      copyBtn.title = 'Copy SSH Command';
+      copyBtn.innerHTML = '<span class="codicon codicon-clippy"></span>';
+      copyBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        vscode.postMessage({ type: 'copyCommand', server: s });
+      });
+
+      actions.appendChild(sshBtn);
+      actions.appendChild(copyBtn);
+      row.addEventListener('click', () => vscode.postMessage({ type: 'openDetail', server: s }));
+    }
+
     row.appendChild(actions);
-
-    row.addEventListener('click', () => vscode.postMessage({ type: 'openSsh', server: s }));
     return row;
   }
 
