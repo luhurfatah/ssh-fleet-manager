@@ -64,8 +64,14 @@ async function computeDistinctValues(
       }
       distinctValues[f.value] = Array.from(values).sort((a, b) => a.localeCompare(b));
     }
+    // Build a deny-list of every column name that belongs to a predefined field
+    const knownCols = new Set<string>(FIELD_DEFS.flatMap((f) => f.defaults));
     const extraKeySet = new Set<string>();
-    for (const s of servers) Object.keys(s.extras).forEach((k) => extraKeySet.add(k));
+    for (const s of servers) {
+      Object.keys(s.extras).forEach((k) => {
+        if (!knownCols.has(k)) extraKeySet.add(k);
+      });
+    }
     const extraColumnKeys = Array.from(extraKeySet).sort();
     return { distinctValues, extraColumnKeys };
   } catch {

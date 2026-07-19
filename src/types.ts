@@ -58,23 +58,23 @@ export type FieldMappingKey =
 export type FieldMapping = Partial<Record<FieldMappingKey, string>>;
 
 export const FIELD_DEFS: { key: FieldMappingKey; label: string; defaults: string[] }[] = [
-  { key: 'hostname',     label: 'Hostname',       defaults: ['Host name', 'Hostname'] },
-  { key: 'privateIp',   label: 'Private IP',     defaults: ['Private IP'] },
-  { key: 'fqdn',        label: 'FQDN',           defaults: ['FQDN'] },
-  { key: 'instanceId',  label: 'Instance ID',    defaults: ['Instance ID'] },
-  { key: 'status',      label: 'Server Status',  defaults: ['Server Status'] },
+  { key: 'hostname',     label: 'Hostname',       defaults: ['Host name', 'Hostname', 'Host Name', 'Server Name'] },
+  { key: 'privateIp',   label: 'Private IP',     defaults: ['Private IP', 'IP Address', 'IP', 'PrivateIp'] },
+  { key: 'fqdn',        label: 'FQDN',           defaults: ['FQDN', 'Fully Qualified Domain Name'] },
+  { key: 'instanceId',  label: 'Instance ID',    defaults: ['Instance ID', 'InstanceId', 'Instance Id'] },
+  { key: 'status',      label: 'Server Status',  defaults: ['Server Status', 'Status'] },
   { key: 'company',     label: 'Company',        defaults: ['Company'] },
-  { key: 'sbu',         label: 'SBU',            defaults: ['SBU'] },
-  { key: 'generalRole', label: 'General Role',   defaults: ['General Role'] },
-  { key: 'serverClass', label: 'Class',          defaults: ['Class'] },
-  { key: 'application', label: 'Application',    defaults: ['Application'] },
-  { key: 'accountName', label: 'Account Name',   defaults: ['Amazon Name', 'Account Name'] },
-  { key: 'accountId',   label: 'Account ID',     defaults: ['Account ID', 'AWS Account ID'] },
+  { key: 'sbu',         label: 'SBU',            defaults: ['SBU', 'Business Unit'] },
+  { key: 'generalRole', label: 'General Role',   defaults: ['General Role', 'Role', 'Environment'] },
+  { key: 'serverClass', label: 'Class',          defaults: ['Class', 'Server Class', 'Type', 'Server Type'] },
+  { key: 'application', label: 'Application',    defaults: ['Application', 'App'] },
+  { key: 'accountName', label: 'Account Name',   defaults: ['Amazon Name', 'Account Name', 'Account', 'AWS Account'] },
+  { key: 'accountId',   label: 'Account ID',     defaults: ['Account ID', 'AWS Account ID', 'AccountId', 'Account Id'] },
   { key: 'owner',       label: 'Owner',          defaults: ['Owner'] },
-  { key: 'ownerEmail',  label: 'Owner Email',    defaults: ['Owner Email'] },
-  { key: 'serverPic',   label: 'Server PIC',     defaults: ['Server PIC'] },
-  { key: 'instanceType',label: 'Instance Type',  defaults: ['Instance Type'] },
-  { key: 'osVersion',   label: 'OS/DB Version',  defaults: ['OS/DB Version'] },
+  { key: 'ownerEmail',  label: 'Owner Email',    defaults: ['Owner Email', 'Owner E-mail'] },
+  { key: 'serverPic',   label: 'Server PIC',     defaults: ['Server PIC', 'PIC'] },
+  { key: 'instanceType',label: 'Instance Type',  defaults: ['Instance Type', 'InstanceType'] },
+  { key: 'osVersion',   label: 'OS/DB Version',  defaults: ['OS/DB Version', 'OS Version', 'OS', 'Operating System'] },
 ];
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -84,15 +84,14 @@ export function mapRecord(raw: Record<string, any>, mapping?: FieldMapping): Ser
   // Resolve a field: use the custom column name if mapped, else try each default column.
   function col(key: FieldMappingKey): string {
     const def = FIELD_DEFS.find((d) => d.key === key)!;
+    // Mark every alternative column name as consumed so none leak into extras
+    def.defaults.forEach((d) => consumed.add(d));
     if (mapping?.[key]) {
       consumed.add(mapping[key]);
       return String(raw[mapping[key]] ?? '');
     }
     for (const d of def.defaults) {
-      if (raw[d] !== undefined && raw[d] !== '') {
-        consumed.add(d);
-        return String(raw[d]);
-      }
+      if (raw[d] !== undefined && raw[d] !== '') return String(raw[d]);
     }
     return '';
   }
