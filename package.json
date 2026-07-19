@@ -7,6 +7,10 @@
   "engines": {
     "vscode": "^1.85.0"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/luhurfatah/ssh-fleet-manager"
+  },
   "categories": [
     "Other"
   ],
@@ -26,7 +30,7 @@
       "sshFleetManager": [
         {
           "id": "sshFleetManagerView",
-          "name": "Servers",
+          "name": "Assets",
           "type": "webview",
           "contextualTitle": "SSH Fleet Manager"
         },

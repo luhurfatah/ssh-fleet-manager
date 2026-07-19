@@ -10,7 +10,7 @@ echo "Building extension..."
 node "$ROOT/esbuild.js" --production
 
 echo "Packaging VSIX..."
-npx vsce package --out "$OUT"
+npx vsce package --out "$OUT" --allow-missing-repository
 
 echo ""
 echo "Output:"

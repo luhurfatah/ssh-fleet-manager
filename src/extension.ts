@@ -260,7 +260,7 @@ export function activate(context: vscode.ExtensionContext) {
   // ── Open JSON Visualizer ───────────────────────────────────────────────────
   context.subscriptions.push(
     vscode.commands.registerCommand('sshFleetManager.openVisualizer', () => {
-      openJsonVisualizerPanel(allAssets, pm.activeProject?.defaultFilterFields);
+      openJsonVisualizerPanel(allAssets, pm.activeProject?.defaultFilterFields, pm.activeProject?.tableColumns, pm.activeProject?.defaultFilterValues);
     })
   );
 
@@ -305,6 +305,10 @@ export function activate(context: vscode.ExtensionContext) {
             },
             context.extensionUri
           );
+          break;
+        }
+        case 'openAssetTable': {
+          openJsonVisualizerPanel(allAssets, pm.activeProject?.defaultFilterFields, pm.activeProject?.tableColumns, pm.activeProject?.defaultFilterValues);
           break;
         }
       }

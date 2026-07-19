@@ -10,12 +10,14 @@ export interface Server {
   serverClass: string;
   application: string;
   accountName: string;
+  accountId: string;
   owner: string;
   ownerEmail: string;
   serverPic: string;
   instanceType: string;
   osVersion: string;
   os: 'linux' | 'windows';
+  extras: Record<string, string>;
 }
 
 export type GroupBy =
@@ -51,7 +53,7 @@ export interface ExcludeRule {
 export type FieldMappingKey =
   | 'hostname' | 'privateIp' | 'fqdn' | 'instanceId' | 'status'
   | 'company' | 'sbu' | 'generalRole' | 'serverClass' | 'application'
-  | 'accountName' | 'owner' | 'ownerEmail' | 'serverPic' | 'instanceType' | 'osVersion';
+  | 'accountName' | 'accountId' | 'owner' | 'ownerEmail' | 'serverPic' | 'instanceType' | 'osVersion';
 
 export type FieldMapping = Partial<Record<FieldMappingKey, string>>;
 
@@ -67,6 +69,7 @@ export const FIELD_DEFS: { key: FieldMappingKey; label: string; defaults: string
   { key: 'serverClass', label: 'Class',          defaults: ['Class'] },
   { key: 'application', label: 'Application',    defaults: ['Application'] },
   { key: 'accountName', label: 'Account Name',   defaults: ['Amazon Name', 'Account Name'] },
+  { key: 'accountId',   label: 'Account ID',     defaults: ['Account ID', 'AWS Account ID'] },
   { key: 'owner',       label: 'Owner',          defaults: ['Owner'] },
   { key: 'ownerEmail',  label: 'Owner Email',    defaults: ['Owner Email'] },
   { key: 'serverPic',   label: 'Server PIC',     defaults: ['Server PIC'] },
@@ -76,12 +79,20 @@ export const FIELD_DEFS: { key: FieldMappingKey; label: string; defaults: string
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function mapRecord(raw: Record<string, any>, mapping?: FieldMapping): Server {
+  const consumed = new Set<string>();
+
   // Resolve a field: use the custom column name if mapped, else try each default column.
   function col(key: FieldMappingKey): string {
     const def = FIELD_DEFS.find((d) => d.key === key)!;
-    if (mapping?.[key]) return String(raw[mapping[key]] ?? '');
+    if (mapping?.[key]) {
+      consumed.add(mapping[key]);
+      return String(raw[mapping[key]] ?? '');
+    }
     for (const d of def.defaults) {
-      if (raw[d] !== undefined && raw[d] !== '') return String(raw[d]);
+      if (raw[d] !== undefined && raw[d] !== '') {
+        consumed.add(d);
+        return String(raw[d]);
+      }
     }
     return '';
   }
@@ -92,6 +103,14 @@ export function mapRecord(raw: Record<string, any>, mapping?: FieldMapping): Ser
   const osVer  = osVersion.toLowerCase();
   const os: 'linux' | 'windows' =
     cls.includes('windows') || osVer.includes('windows') ? 'windows' : 'linux';
+
+  const extras: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (!consumed.has(k)) {
+      const sv = v !== null && v !== undefined ? String(v).trim() : '';
+      if (sv) extras[k] = sv;
+    }
+  }
 
   return {
     hostname:     col('hostname'),
@@ -105,11 +124,13 @@ export function mapRecord(raw: Record<string, any>, mapping?: FieldMapping): Ser
     serverClass,
     application:  col('application'),
     accountName:  col('accountName'),
+    accountId:    col('accountId'),
     owner:        col('owner'),
     ownerEmail:   col('ownerEmail'),
     serverPic:    col('serverPic'),
     instanceType: col('instanceType'),
     osVersion,
     os,
+    extras,
   };
 }

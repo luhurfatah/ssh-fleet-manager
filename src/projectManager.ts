@@ -16,7 +16,9 @@ export interface Project {
   xlsxSheet?: string;
   credentials: ProjectCredentials;
   groupBy?: GroupBy;
-  defaultFilterFields?: GroupBy[];
+  defaultFilterFields?: string[];
+  defaultFilterValues?: Record<string, string[]>;
+  tableColumns?: string[];
   fieldMapping?: FieldMapping;
   excludeRules?: ExcludeRule[];
 }
@@ -98,10 +100,24 @@ export class ProjectManager {
     await this.persist();
   }
 
-  async setDefaultFilterFields(projectId: string, fields: GroupBy[]): Promise<void> {
+  async setDefaultFilterFields(projectId: string, fields: string[]): Promise<void> {
     const project = this.state.projects.find((p) => p.id === projectId);
     if (!project) return;
     project.defaultFilterFields = fields.length > 0 ? fields : undefined;
+    await this.persist();
+  }
+
+  async setDefaultFilterValues(projectId: string, values: Record<string, string[]>): Promise<void> {
+    const project = this.state.projects.find((p) => p.id === projectId);
+    if (!project) return;
+    project.defaultFilterValues = Object.keys(values).length > 0 ? values : undefined;
+    await this.persist();
+  }
+
+  async setTableColumns(projectId: string, columns: string[]): Promise<void> {
+    const project = this.state.projects.find((p) => p.id === projectId);
+    if (!project) return;
+    project.tableColumns = columns.length > 0 ? columns : undefined;
     await this.persist();
   }
 

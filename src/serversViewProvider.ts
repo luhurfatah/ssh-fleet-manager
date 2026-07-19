@@ -8,7 +8,8 @@ export type ServersViewMessage =
   | { type: 'copyCommand'; server: Server }
   | { type: 'openRdp'; server: Server }
   | { type: 'copyRdpCommand'; server: Server }
-  | { type: 'openDetail'; server: Server };
+  | { type: 'openDetail'; server: Server }
+  | { type: 'openAssetTable' };
 
 export class ServersViewProvider implements vscode.WebviewViewProvider {
   static readonly viewId = 'sshFleetManagerView';
@@ -88,14 +89,45 @@ export class ServersViewProvider implements vscode.WebviewViewProvider {
     color: var(--vscode-foreground);
   }
   .toolbar { padding: 6px 8px; flex: 0 0 auto; }
+  .project-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
   .project-name {
     font-weight: 600;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    margin-bottom: 6px;
+    flex: 1;
+    min-width: 0;
   }
+  .btn-asset-table {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--vscode-font-family);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--vscode-button-foreground);
+    background: var(--vscode-button-background);
+    border: none;
+    border-radius: 3px;
+    padding: 3px 8px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.12s;
+  }
+  .btn-asset-table:hover { background: var(--vscode-button-hoverBackground); }
   .hint { color: var(--vscode-descriptionForeground); margin-bottom: 6px; font-size: 12px; }
+  .pane-subtitle {
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+    margin-bottom: 6px;
+    opacity: 0.8;
+  }
   .search-row {
     display: flex;
     align-items: center;
@@ -205,7 +237,14 @@ export class ServersViewProvider implements vscode.WebviewViewProvider {
 </head>
 <body>
 <div class="toolbar">
-  <div class="project-name" id="projectName">No project selected</div>
+  <div class="project-row">
+    <div class="project-name" id="projectName">No project selected</div>
+    <button class="btn-asset-table" id="btnAssetTable" title="Open Asset Table">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
+      Asset Table
+    </button>
+  </div>
+  <div class="pane-subtitle">Servers only &mdash; open Asset Table for all assets</div>
   <div class="hint" id="hint" style="display:none;">No active project — use the toolbar above to create one.</div>
   <div class="search-row">
     <input type="text" id="q" placeholder="Search servers…" autocomplete="off" spellcheck="false" />
@@ -220,6 +259,10 @@ export class ServersViewProvider implements vscode.WebviewViewProvider {
   const q = document.getElementById('q');
   const btnClear = document.getElementById('btnClear');
   const listEl = document.getElementById('list');
+
+  document.getElementById('btnAssetTable').addEventListener('click', () => {
+    vscode.postMessage({ type: 'openAssetTable' });
+  });
 
   let allServers = [];
   let groupBy = 'company';
