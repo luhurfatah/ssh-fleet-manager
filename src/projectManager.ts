@@ -1,18 +1,25 @@
 import * as vscode from 'vscode';
 import * as crypto from 'crypto';
-import { ExcludeRule, GroupBy } from './types';
+import { ExcludeRule, FieldMapping, GroupBy } from './types';
 
 export interface ProjectCredentials {
   username?: string;
   sshKeyPath?: string;
+  rdpUsername?: string;
+  rdpDomain?: string;
 }
 
 export interface Project {
   id: string;
   name: string;
   jsonFilePath?: string;
+  xlsxSheet?: string;
   credentials: ProjectCredentials;
   groupBy?: GroupBy;
+  defaultFilterFields?: string[];
+  defaultFilterValues?: Record<string, string[]>;
+  tableColumns?: string[];
+  fieldMapping?: FieldMapping;
   excludeRules?: ExcludeRule[];
 }
 
@@ -71,10 +78,11 @@ export class ProjectManager {
     await this.persist();
   }
 
-  async updateJsonFilePath(projectId: string, filePath: string): Promise<void> {
+  async updateJsonFilePath(projectId: string, filePath: string, xlsxSheet?: string): Promise<void> {
     const project = this.state.projects.find((p) => p.id === projectId);
     if (!project) return;
     project.jsonFilePath = filePath || undefined;
+    project.xlsxSheet = xlsxSheet || undefined;
     await this.persist();
   }
 
@@ -89,6 +97,34 @@ export class ProjectManager {
     const project = this.state.projects.find((p) => p.id === projectId);
     if (!project) return;
     project.groupBy = groupBy;
+    await this.persist();
+  }
+
+  async setDefaultFilterFields(projectId: string, fields: string[]): Promise<void> {
+    const project = this.state.projects.find((p) => p.id === projectId);
+    if (!project) return;
+    project.defaultFilterFields = fields.length > 0 ? fields : undefined;
+    await this.persist();
+  }
+
+  async setDefaultFilterValues(projectId: string, values: Record<string, string[]>): Promise<void> {
+    const project = this.state.projects.find((p) => p.id === projectId);
+    if (!project) return;
+    project.defaultFilterValues = Object.keys(values).length > 0 ? values : undefined;
+    await this.persist();
+  }
+
+  async setTableColumns(projectId: string, columns: string[]): Promise<void> {
+    const project = this.state.projects.find((p) => p.id === projectId);
+    if (!project) return;
+    project.tableColumns = columns.length > 0 ? columns : undefined;
+    await this.persist();
+  }
+
+  async setFieldMapping(projectId: string, mapping: FieldMapping): Promise<void> {
+    const project = this.state.projects.find((p) => p.id === projectId);
+    if (!project) return;
+    project.fieldMapping = Object.keys(mapping).length > 0 ? mapping : undefined;
     await this.persist();
   }
 

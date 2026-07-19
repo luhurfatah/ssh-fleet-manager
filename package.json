@@ -7,6 +7,10 @@
   "engines": {
     "vscode": "^1.85.0"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/luhurfatah/ssh-fleet-manager"
+  },
   "categories": [
     "Other"
   ],
@@ -26,7 +30,7 @@
       "sshFleetManager": [
         {
           "id": "sshFleetManagerView",
-          "name": "Servers",
+          "name": "Assets",
           "type": "webview",
           "contextualTitle": "SSH Fleet Manager"
         },
@@ -40,7 +44,7 @@
     "commands": [
       {
         "command": "sshFleetManager.loadFile",
-        "title": "Load JSON File",
+        "title": "Load File (JSON / Excel)",
         "icon": "$(folder-opened)",
         "category": "SSH Fleet Manager"
       },
@@ -85,19 +89,20 @@
         "title": "Delete Project",
         "icon": "$(trash)",
         "category": "SSH Fleet Manager"
+      },
+      {
+        "command": "sshFleetManager.openVisualizer",
+        "title": "Open Asset Table",
+        "icon": "$(table)",
+        "category": "SSH Fleet Manager"
       }
     ],
     "menus": {
       "view/title": [
         {
-          "command": "sshFleetManager.loadFile",
-          "when": "view == sshFleetManagerView",
-          "group": "navigation@1"
-        },
-        {
           "command": "sshFleetManager.refresh",
           "when": "view == sshFleetManagerView",
-          "group": "navigation@2"
+          "group": "navigation@1"
         },
         {
           "command": "sshFleetManager.createProject",
@@ -105,7 +110,7 @@
           "group": "navigation@1"
         },
         {
-          "command": "sshFleetManager.editProjectCredentials",
+          "command": "sshFleetManager.openVisualizer",
           "when": "view == sshFleetManagerProjects",
           "group": "navigation@2"
         }
@@ -117,19 +122,14 @@
           "group": "inline@1"
         },
         {
-          "command": "sshFleetManager.loadFileForProject",
+          "command": "sshFleetManager.editProjectCredentials",
           "when": "view == sshFleetManagerProjects && (viewItem == project || viewItem == activeProject)",
           "group": "1_project@1"
         },
         {
-          "command": "sshFleetManager.editProjectCredentials",
-          "when": "view == sshFleetManagerProjects && (viewItem == project || viewItem == activeProject)",
-          "group": "1_project@2"
-        },
-        {
           "command": "sshFleetManager.deleteProject",
           "when": "view == sshFleetManagerProjects && (viewItem == project || viewItem == activeProject)",
-          "group": "1_project@3"
+          "group": "1_project@2"
         }
       ]
     },
@@ -195,5 +195,8 @@
   },
   "overrides": {
     "cheerio": "1.0.0-rc.12"
+  },
+  "dependencies": {
+    "xlsx": "^0.18.5"
   }
 }

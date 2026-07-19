@@ -1,11 +1,13 @@
 import * as vscode from 'vscode';
-import { pickAndLoadFile, loadFile } from './serverLoader';
-import { openSshTerminal, copySshCommand } from './sshManager';
+import { loadFile } from './serverLoader';
+import { openSshTerminal, copySshCommand, openRdpTerminal, copyRdpCommand } from './sshManager';
 import { ExcludeRule, GroupBy, Server } from './types';
 import { ProjectManager } from './projectManager';
 import { ProjectsTreeProvider, ProjectNode } from './projectsTreeProvider';
 import { ServersViewProvider } from './serversViewProvider';
 import { openProjectDetailsPanel } from './projectDetailsPanel';
+import { openServerDetailPanel } from './serverDetailPanel';
+import { openJsonVisualizerPanel, updateJsonVisualizerPanel } from './jsonVisualizerPanel';
 
 function applyExcludeRules(servers: Server[], rules: ExcludeRule[] | undefined): Server[] {
   if (!rules || rules.length === 0) return servers;
@@ -23,7 +25,9 @@ export function activate(context: vscode.ExtensionContext) {
   const serversProvider = new ServersViewProvider(context.extensionUri);
 
   let rawServers: Server[] = [];
-  let allServers: Server[] = [];
+  let allAssets: Server[] = [];  // all records after exclude rules → Asset Table
+  let allServers: Server[] = []; // server-class records only → Servers pane
+  let fileWatcher: vscode.FileSystemWatcher | undefined;
 
   // ── Register views ────────────────────────────────────────────────────────
   context.subscriptions.push(
@@ -43,29 +47,71 @@ export function activate(context: vscode.ExtensionContext) {
     return vscode.workspace.getConfiguration('sshFleetManager').get<GroupBy>('groupBy', 'company');
   }
 
+  function isServerEntry(s: Server): boolean {
+    return s.serverClass.toLowerCase() !== 'database';
+  }
+
   function refreshViews() {
-    allServers = applyExcludeRules(rawServers, pm.activeProject?.excludeRules);
+    allAssets = applyExcludeRules(rawServers, pm.activeProject?.excludeRules);
+    allServers = allAssets.filter(isServerEntry);
     serversProvider.setServers(allServers);
     serversProvider.setProjectName(pm.activeProject?.name);
     serversProvider.setGroupByField(computeGroupByField());
     projectsProvider.refresh();
+    updateJsonVisualizerPanel(allAssets);
   }
 
   async function loadActiveProjectFile(): Promise<void> {
     const active = pm.activeProject;
     if (active?.jsonFilePath) {
       try {
-        rawServers = await loadFile(active.jsonFilePath);
+        rawServers = await loadFile(active.jsonFilePath, active.xlsxSheet, active.fieldMapping);
       } catch {
         rawServers = [];
         vscode.window.showWarningMessage(
-          `Could not load JSON for "${active.name}". Use Load JSON File to reload.`
+          `Could not load asset file for "${active.name}". Open Project Settings to update the file path.`
         );
       }
     } else {
       rawServers = [];
     }
     refreshViews();
+    watchActiveProjectFile();
+  }
+
+  function watchActiveProjectFile(): void {
+    fileWatcher?.dispose();
+    fileWatcher = undefined;
+    const filePath = pm.activeProject?.jsonFilePath;
+    if (!filePath) return;
+
+    const uri = vscode.Uri.file(filePath);
+    const pattern = new vscode.RelativePattern(
+      vscode.Uri.file(require('path').dirname(filePath)),
+      require('path').basename(filePath)
+    );
+    fileWatcher = vscode.workspace.createFileSystemWatcher(pattern);
+    context.subscriptions.push(fileWatcher);
+
+    let debounce: ReturnType<typeof setTimeout> | undefined;
+    const reload = () => {
+      clearTimeout(debounce);
+      debounce = setTimeout(async () => {
+        try {
+          const active = pm.activeProject;
+          if (!active?.jsonFilePath) return;
+          rawServers = await loadFile(active.jsonFilePath, active.xlsxSheet, active.fieldMapping);
+          refreshViews();
+          vscode.window.showInformationMessage(`Auto-reloaded: ${allServers.length} servers`);
+        } catch {
+          // silently ignore transient read errors during save
+        }
+      }, 800);
+    };
+
+    fileWatcher.onDidChange(reload);
+    fileWatcher.onDidCreate(reload);
+    void uri; // suppress unused warning
   }
 
   async function doSwitchToProject(projectId: string): Promise<void> {
@@ -84,42 +130,17 @@ export function activate(context: vscode.ExtensionContext) {
   // ── Auto-load on startup ──────────────────────────────────────────────────
   loadActiveProjectFile();
 
-  // ── Load File ─────────────────────────────────────────────────────────────
-  context.subscriptions.push(
-    vscode.commands.registerCommand('sshFleetManager.loadFile', async () => {
-      try {
-        let active = pm.activeProject;
-        if (!active) {
-          const name = await vscode.window.showInputBox({
-            prompt: 'Enter a name for this project',
-            placeHolder: 'e.g. Production, Staging, Client A',
-            validateInput: (v) => (v.trim() ? undefined : 'Project name cannot be empty'),
-          });
-          if (!name) return;
-          active = await pm.createProject(name.trim());
-        }
-        const result = await pickAndLoadFile();
-        if (!result) return;
-        await pm.updateJsonFilePath(active.id, result.filePath);
-        rawServers = result.servers;
-        refreshViews();
-        vscode.window.showInformationMessage(`Loaded ${result.servers.length} Linux servers`);
-      } catch (err) {
-        vscode.window.showErrorMessage(`Failed to load file: ${err}`);
-      }
-    })
-  );
-
   // ── Refresh ───────────────────────────────────────────────────────────────
   context.subscriptions.push(
     vscode.commands.registerCommand('sshFleetManager.refresh', async () => {
-      const filePath = pm.activeProject?.jsonFilePath;
+      const active = pm.activeProject;
+      const filePath = active?.jsonFilePath;
       if (!filePath) {
-        vscode.window.showWarningMessage('No JSON file loaded. Use "Load JSON File" first.');
+        vscode.window.showWarningMessage('No file loaded. Open Project Settings to set a data source.');
         return;
       }
       try {
-        rawServers = await loadFile(filePath);
+        rawServers = await loadFile(filePath, active?.xlsxSheet, active?.fieldMapping);
         refreshViews();
         vscode.window.showInformationMessage(`Refreshed: ${allServers.length} servers`);
       } catch (err) {
@@ -139,13 +160,13 @@ export function activate(context: vscode.ExtensionContext) {
       if (!name) return;
       const project = await pm.createProject(name.trim());
       await doSwitchToProject(project.id);
-      const loadNow = await vscode.window.showInformationMessage(
+      const openNow = await vscode.window.showInformationMessage(
         `Project "${project.name}" created.`,
-        'Load JSON File',
+        'Open Settings',
         'Later'
       );
-      if (loadNow === 'Load JSON File') {
-        await vscode.commands.executeCommand('sshFleetManager.loadFile');
+      if (openNow === 'Open Settings') {
+        await vscode.commands.executeCommand('sshFleetManager.editProjectCredentials');
       }
     })
   );
@@ -185,22 +206,6 @@ export function activate(context: vscode.ExtensionContext) {
       await doSwitchToProject(picked.projectId);
       vscode.window.showInformationMessage(`Switched to "${pm.activeProject?.name}"`);
     })
-  );
-
-  // ── Load JSON for a specific project (context menu) ───────────────────────
-  context.subscriptions.push(
-    vscode.commands.registerCommand(
-      'sshFleetManager.loadFileForProject',
-      async (node: ProjectNode) => {
-        if (!node?.project) return;
-        if (node.project.id !== pm.activeProject?.id) {
-          await pm.setActiveProject(node.project.id);
-          rawServers = [];
-          refreshViews();
-        }
-        await vscode.commands.executeCommand('sshFleetManager.loadFile');
-      }
-    )
   );
 
   // ── Edit Project Details (opens a new editor pane) ─────────────────────────
@@ -252,6 +257,13 @@ export function activate(context: vscode.ExtensionContext) {
     )
   );
 
+  // ── Open JSON Visualizer ───────────────────────────────────────────────────
+  context.subscriptions.push(
+    vscode.commands.registerCommand('sshFleetManager.openVisualizer', () => {
+      openJsonVisualizerPanel(allAssets, pm.activeProject?.defaultFilterFields, pm.activeProject?.tableColumns, pm.activeProject?.defaultFilterValues);
+    })
+  );
+
   // ── Messages from the Servers webview ──────────────────────────────────────
   context.subscriptions.push(
     serversProvider.onMessage(async (msg) => {
@@ -265,6 +277,38 @@ export function activate(context: vscode.ExtensionContext) {
         case 'copyCommand': {
           const active = pm.activeProject;
           await copySshCommand(msg.server, active?.credentials);
+          break;
+        }
+        case 'openRdp': {
+          const active = pm.activeProject;
+          const password = active ? await pm.getPassword(active.id) : undefined;
+          openRdpTerminal(msg.server, { ...active?.credentials, password });
+          break;
+        }
+        case 'copyRdpCommand': {
+          const active = pm.activeProject;
+          await copyRdpCommand(msg.server, active?.credentials);
+          break;
+        }
+        case 'openDetail': {
+          const active = pm.activeProject;
+          const password = active ? await pm.getPassword(active.id) : undefined;
+          openServerDetailPanel(
+            msg.server,
+            {
+              ssh: { ...active?.credentials, password },
+              rdp: {
+                rdpUsername: active?.credentials?.rdpUsername,
+                rdpDomain: active?.credentials?.rdpDomain,
+                password,
+              },
+            },
+            context.extensionUri
+          );
+          break;
+        }
+        case 'openAssetTable': {
+          openJsonVisualizerPanel(allAssets, pm.activeProject?.defaultFilterFields, pm.activeProject?.tableColumns, pm.activeProject?.defaultFilterValues);
           break;
         }
       }
